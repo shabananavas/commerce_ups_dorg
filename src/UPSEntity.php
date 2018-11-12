@@ -4,6 +4,11 @@ namespace Drupal\commerce_ups;
 
 use Ups\Entity\UnitOfMeasurement;
 
+/**
+ * Constructs a UPS Entity.
+ *
+ * @package Drupal\commerce_ups
+ */
 abstract class UPSEntity {
 
   /**
@@ -37,13 +42,12 @@ abstract class UPSEntity {
    *   The string value expected by UPS API.
    */
   public function getUnitOfMeasure($unit) {
-    // todo: map all required units.
     switch ($unit) {
       case 'lb':
-        return UnitOfMeasurement::PROD_POUNDS;
+        return UnitOfMeasurement::PROD_POUND;
 
       case 'kg':
-        return UnitOfMeasurement::PROD_KILOGRAMS;
+        return UnitOfMeasurement::PROD_KILOGRAM;
 
       case 'in':
         return UnitOfMeasurement::UOM_IN;
@@ -51,6 +55,11 @@ abstract class UPSEntity {
       case 'cm':
         return UnitOfMeasurement::UOM_CM;
 
+      case 'm':
+        return UnitOfMeasurement::PROD_METER;
+
+      case 'ft':
+        return UnitOfMeasurement::PROD_FEET;
     }
     return $unit;
   }

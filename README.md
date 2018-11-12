@@ -1,7 +1,8 @@
 Commerce UPS
 =================
 
-Provides UPS shipping functionality for Drupal Commerce.
+Provides UPS shipping functionality for Drupal Commerce, based heavily on the 
+work done by [Commerce Fedex](https://github.com/bmcclure/drupal-commerce_fedex).
 
 ## Development Setup
 

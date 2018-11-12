@@ -28,20 +28,17 @@ commerce_shipping.commerce_shipping_method.plugin.ups:
       type: mapping
       label: 'UPS Options'
       mapping:
-        tracking_url:
-          type: string
-          label: 'Tracking URL'
         log:
           type: mapping
           label: 'Log the following messages for debugging'
           mapping:
             request:
-              type: field.value.boolean
+              type: boolean
               mapping:
                 value:
                   label: 'API request messages'
             response:
-              type: field.value.boolean
+              type: boolean
               mapping:
                 value:
                   label: 'API response messages'

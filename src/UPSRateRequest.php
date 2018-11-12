@@ -4,10 +4,8 @@ namespace Drupal\commerce_ups;
 
 use Drupal\commerce_price\Price;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
-use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface;
 use Drupal\commerce_shipping\ShippingRate;
 use Drupal\commerce_shipping\ShippingService;
-use Psr\Container\ContainerInterface;
 use Ups\Rate;
 use Ups\Entity\RateInformation;
 
@@ -16,78 +14,43 @@ use Ups\Entity\RateInformation;
  *
  * @package Drupal\commerce_ups
  */
-class UPSRateRequest extends UPSRequest implements UPSRateRequestInterface {
+class UPSRateRequest extends UPSRequest {
+
   /**
-   * The commerce shipment.
+   * The commerce shipment entity.
    *
    * @var \Drupal\commerce_shipping\Entity\ShipmentInterface
    */
-  protected $commerce_shipment;
+  protected $commerceShipment;
 
   /**
-   * The commerce shipping method.
-   *
-   * @var \Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface
-   */
-  protected $shipping_method;
-
-  /**
-   * A shipping method configuration array.
+   * The configuration array from a CommerceShippingMethod.
    *
    * @var array
    */
   protected $configuration;
 
   /**
-   * The UPS Shipment object.
+   * Set the shipment for rate requests.
    *
-   * @var \Drupal\commerce_ups\UPSShipmentInterface
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $commerce_shipment
+   *   A Drupal Commerce shipment entity.
    */
-  protected $ups_shipment;
-
-  /**
-   * UPSRateRequest constructor.
-   *
-   * @param \Drupal\commerce_ups\UPSShipmentInterface $ups_shipment
-   *   The UPS shipment object.
-   */
-  public function __construct(UPSShipmentInterface $ups_shipment) {
-    $this->ups_shipment = $ups_shipment;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function create(ContainerInterface $container) {
-    return new static(
-      $container->get('commerce_ups.ups_shipment')
-    );
+  public function setShipment(ShipmentInterface $commerce_shipment) {
+    $this->commerceShipment = $commerce_shipment;
   }
 
   /**
    * Fetch rates from the UPS API.
-   *
-   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $commerce_shipment
-   *   The commerce shipment.
-   * @param \Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface $shipping_method
-   *   The shipping method.
-   *
-   * @throws \Exception
-   *   Exception when required properties are missing.
-   *
-   * @return array
-   *   An array of ShippingRate objects.
    */
-  public function getRates(ShipmentInterface $commerce_shipment, ShippingMethodInterface $shipping_method) {
-    $rates = [];
+  public function getRates() {
+    // Validate a commerce shipment has been provided.
+    if (empty($this->commerceShipment)) {
+      throw new \Exception('Shipment not provided');
+    }
 
-    try {
-      $auth = $this->getAuth();
-    }
-    catch (\Exception $exception) {
-      \Drupal::logger('commerce_ups')->error(dt('Unable to fetch authentication config for UPS. Please check your shipping method configuration.'));
-      return [];
-    }
+    $rates = [];
+    $auth = $this->getAuth();
 
     $request = new Rate(
       $auth['access_key'],
@@ -97,7 +60,8 @@ class UPSRateRequest extends UPSRequest implements UPSRateRequestInterface {
     );
 
     try {
-      $shipment = $this->ups_shipment->getShipment($commerce_shipment, $shipping_method);
+      $ups_shipment = new UPSShipment($this->commerceShipment);
+      $shipment = $ups_shipment->getShipment();
 
       // Enable negotiated rates, if enabled.
       if ($this->getRateType()) {
@@ -124,23 +88,13 @@ class UPSRateRequest extends UPSRequest implements UPSRateRequestInterface {
           continue;
         }
 
-        // Use negotiated rates if they were returned.
-        if ($this->getRateType() && !empty($ups_rate->NegotiatedRates->NetSummaryCharges->GrandTotal->MonetaryValue)) {
-          $cost = $ups_rate->NegotiatedRates->NetSummaryCharges->GrandTotal->MonetaryValue;
-          $currency = $ups_rate->NegotiatedRates->NetSummaryCharges->GrandTotal->CurrencyCode;
-        }
-
-        // Otherwise, use the default rates.
-        else {
-          $cost = $ups_rate->TotalCharges->MonetaryValue;
-          $currency = $ups_rate->TotalCharges->CurrencyCode;
-        }
-
+        $cost = $ups_rate->TotalCharges->MonetaryValue;
+        $currency = $ups_rate->TotalCharges->CurrencyCode;
         $price = new Price((string) $cost, $currency);
         $service_name = $ups_rate->Service->getName();
 
         $shipping_service = new ShippingService(
-          $service_code,
+          $service_name,
           $service_name
         );
         $rates[] = new ShippingRate(

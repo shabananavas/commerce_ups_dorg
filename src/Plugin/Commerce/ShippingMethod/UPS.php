@@ -5,40 +5,41 @@ namespace Drupal\commerce_ups\Plugin\Commerce\ShippingMethod;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
-use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\SupportsTrackingInterface;
 use Drupal\commerce_ups\UPSRequestInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
+ * Creates a UPS shipping method.
+ *
  * @CommerceShippingMethod(
  *  id = "ups",
  *  label = @Translation("UPS"),
  *  services = {
- *    "_01" = @translation("UPS Next Day Air"),
- *    "_02" = @translation("UPS Second Day Air"),
- *    "_03" = @translation("UPS Ground"),
- *    "_07" = @translation("UPS Worldwide Express"),
- *    "_08" = @translation("UPS Worldwide Expedited"),
- *    "_11" = @translation("UPS Standard"),
- *    "_12" = @translation("UPS Three-Day Select"),
- *    "_13" = @translation("Next Day Air Saver"),
- *    "_14" = @translation("UPS Next Day Air Early AM"),
- *    "_54" = @translation("UPS Worldwide Express Plus"),
- *    "_59" = @translation("UPS Second Day Air AM"),
- *    "_65" = @translation("UPS Saver"),
- *    "_70" = @translation("UPS Access Point Economy")
- *   }
+ *   "01" = @translation("UPS Next Day Air"),
+ *   "02" = @translation("UPS Second Day Air"),
+ *   "03" = @translation("UPS Ground"),
+ *   "07" = @translation("UPS Worldwide Express"),
+ *   "08" = @translation("UPS Worldwide Expedited"),
+ *   "11" = @translation("UPS Standard"),
+ *   "12" = @translation("UPS Three-Day Select"),
+ *   "13" = @translation("Next Day Air Saver"),
+ *   "14" = @translation("UPS Next Day Air Early AM"),
+ *   "54" = @translation("UPS Worldwide Express Plus"),
+ *   "59" = @translation("UPS Second Day Air AM"),
+ *   "65" = @translation("UPS Saver"),
+ *   "70" = @translation("UPS Access Point Economy"),
+ *   },
  * )
  */
-class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
+class UPS extends ShippingMethodBase {
+
   /**
-   * The UPS rate service.
+   * The UPSRateRequest class.
    *
-   * @var \Drupal\commerce_ups\UPSRateRequestInterface
+   * @var \Drupal\commerce_ups\UPSRateRequest
    */
-  protected $ups_rate_service;
+  protected $upsRateService;
 
   /**
    * Constructs a new ShippingMethodBase object.
@@ -54,18 +55,33 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
    * @param \Drupal\commerce_ups\UPSRequestInterface $ups_rate_request
    *   The rate request service.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $packageTypeManager, UPSRequestInterface $ups_rate_request) {
-    // Rewrite the service keys to be integers.
-    $plugin_definition = $this->preparePluginDefinition($plugin_definition);
-    parent::__construct($configuration, $plugin_id, $plugin_definition, $packageTypeManager);
-    $this->ups_rate_service = $ups_rate_request;
-    $this->ups_rate_service->setConfig($configuration);
+  public function __construct(
+    array $configuration,
+    $plugin_id,
+    $plugin_definition,
+    PackageTypeManagerInterface $packageTypeManager,
+    UPSRequestInterface $ups_rate_request
+  ) {
+    parent::__construct(
+      $configuration,
+      $plugin_id,
+      $plugin_definition,
+      $packageTypeManager
+    );
+
+    $this->upsRateService = $ups_rate_request;
+    $this->upsRateService->setConfig($configuration);
   }
 
   /**
    * {@inheritdoc}
    */
-  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+  public static function create(
+    ContainerInterface $container,
+    array $configuration,
+    $plugin_id,
+    $plugin_definition
+  ) {
     return new static(
       $configuration,
       $plugin_id,
@@ -73,34 +89,6 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
       $container->get('plugin.manager.commerce_package_type'),
       $container->get('commerce_ups.ups_rate_request')
     );
-  }
-
-  /**
-   * Prepares the service array keys to support integer values.
-   *
-   * See https://www.drupal.org/node/2904467 for more information.
-   * todo: Remove once core issue has been addressed.
-   *
-   * @param array $plugin_definition
-   *   The plugin definition provided to the class.
-   *
-   * @return array
-   *   The prepared plugin definition.
-   */
-  private function preparePluginDefinition(array $plugin_definition) {
-    // Cache and unset the parsed plugin definitions for services.
-    $services = $plugin_definition['services'];
-    unset($plugin_definition['services']);
-
-    // Loop over each service definition and redefine them with
-    // integer keys that match the UPS API.
-    foreach ($services as $key => $service) {
-      // Remove the "_" from the service key.
-      $key_trimmed = str_replace('_', '', $key);
-      $plugin_definition['services'][$key_trimmed] = $service;
-    }
-
-    return $plugin_definition;
   }
 
   /**
@@ -118,7 +106,6 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
         'rate_type' => 0,
       ] ,
       'options' => [
-        'tracking_url' => 'https://wwwapps.ups.com/tracking/tracking.cgi?tracknum=[tracking_code]',
         'log' => [],
       ],
     ] + parent::defaultConfiguration();
@@ -133,7 +120,9 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
     $form['api_information'] = [
       '#type' => 'details',
       '#title' => $this->t('API information'),
-      '#description' => $this->isConfigured() ? $this->t('Update your UPS API information.') : $this->t('Fill in your UPS API information.'),
+      '#description' => $this->isConfigured()
+      ? $this->t('Update your UPS API information.')
+      : $this->t('Fill in your UPS API information.'),
       '#weight' => $this->isConfigured() ? 10 : -10,
       '#open' => !$this->isConfigured(),
     ];
@@ -191,12 +180,6 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
       '#title' => $this->t('UPS Options'),
       '#description' => $this->t('Additional options for UPS'),
     ];
-    $form['options']['tracking_url'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Tracking URL base'),
-      '#description' => $this->t('The base URL for assembling a tracking URL. If the [tracking_code] token is omitted, the code will be appended to the end of the URL (e.g. "https://wwwapps.ups.com/tracking/tracking.cgi?tracknum=123456789")'),
-      '#default_value' => $this->configuration['options']['tracking_url'],
-    ];
     $form['options']['log'] = [
       '#type' => 'checkboxes',
       '#title' => $this->t('Log the following messages for debugging'),
@@ -238,40 +221,9 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
    *   The rates.
    */
   public function calculateRates(ShipmentInterface $shipment) {
-    $rates = [];
+    $this->upsRateService->setShipment($shipment);
 
-    // Only attempt to collect rates if an address exits on the shipment.
-    if (!$shipment->getShippingProfile()->get('address')->isEmpty()) {
-      $rates = $this->ups_rate_service->getRates($shipment, $this);
-    }
-
-    return $rates;
-  }
-
-  /**
-   * Returns a tracking URL for UPS shipments.
-   *
-   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
-   *   The commerce shipment.
-   *
-   * @return mixed
-   *   The URL object or FALSE.
-   */
-  public function getTrackingUrl(ShipmentInterface $shipment) {
-    $code = $shipment->getTrackingCode();
-    if (!empty($code)) {
-      // If the tracking code token exists, replace it with the code.
-      if (strstr($this->configuration['options']['tracking_url'], '[tracking_code]')) {
-        $url = str_replace('[tracking_code]', $code, $this->configuration['options']['tracking_url']);
-      }
-      else {
-        // Otherwise, append the tracking code to the end of the URL.
-        $url = $this->configuration['options']['tracking_url'] . $code;
-      }
-
-      return Url::fromUri($url);
-    }
-    return FALSE;
+    return $this->upsRateService->getRates();
   }
 
   /**
