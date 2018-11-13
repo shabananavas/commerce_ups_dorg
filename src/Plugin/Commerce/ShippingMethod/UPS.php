@@ -6,7 +6,9 @@ use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
 use Drupal\commerce_ups\UPSRequestInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use function substr;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -42,6 +44,13 @@ class UPS extends ShippingMethodBase {
   protected $upsRateService;
 
   /**
+   * The entity type manager.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   */
+  protected $entityTypeManager;
+
+  /**
    * Constructs a new ShippingMethodBase object.
    *
    * @param array $configuration
@@ -54,13 +63,16 @@ class UPS extends ShippingMethodBase {
    *   The package type manager.
    * @param \Drupal\commerce_ups\UPSRequestInterface $ups_rate_request
    *   The rate request service.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+   *   The entity type manager.
    */
   public function __construct(
     array $configuration,
     $plugin_id,
     $plugin_definition,
     PackageTypeManagerInterface $packageTypeManager,
-    UPSRequestInterface $ups_rate_request
+    UPSRequestInterface $ups_rate_request,
+    EntityTypeManagerInterface $entity_type_manager
   ) {
     parent::__construct(
       $configuration,
@@ -71,6 +83,8 @@ class UPS extends ShippingMethodBase {
 
     $this->upsRateService = $ups_rate_request;
     $this->upsRateService->setConfig($configuration);
+
+    $this->entityTypeManager = $entity_type_manager;
   }
 
   /**
@@ -87,7 +101,8 @@ class UPS extends ShippingMethodBase {
       $plugin_id,
       $plugin_definition,
       $container->get('plugin.manager.commerce_package_type'),
-      $container->get('commerce_ups.ups_rate_request')
+      $container->get('commerce_ups.ups_rate_request'),
+      $container->get('entity_type.manager')
     );
   }
 
@@ -197,6 +212,32 @@ class UPS extends ShippingMethodBase {
     ];
 
     return $form;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
+    parent::validateConfigurationForm($form, $form_state);
+
+    // Ensure the package type selected for this method doesn't have an empty
+    // weight as the UPS API will throw an error when calculating rates.
+    $values = $form_state->getValue($form['#parents']);
+    $package_type = $this->entityTypeManager->getStorage('commerce_package_type')->loadByProperties([
+      'uuid' => substr($values['default_package_type'], 22)
+    ]);
+    /** @var \Drupal\commerce_shipping\Entity\PackageTypeInterface $package_type */
+    $package_type = reset($package_type);
+
+    // Validate the weight.
+    $actual_weight = $package_type->getWeight();
+    if ($actual_weight['number'] == 0) {
+      $form_state->setError($form['default_package_type'], $this->t(
+        'The weight for a package type cannot be 0 for UPS.
+         Please select another package or change the weight for this package and
+          resave.'
+      ));
+    }
   }
 
   /**
