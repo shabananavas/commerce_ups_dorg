@@ -117,6 +117,12 @@ class UPS extends ShippingMethodBase {
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
 
+    // Select all services by default.
+    if (empty($this->configuration['services'])) {
+      $service_ids = array_keys($this->services);
+      $this->configuration['services'] = array_combine($service_ids, $service_ids);
+    }
+
     $form['api_information'] = [
       '#type' => 'details',
       '#title' => $this->t('API information'),
@@ -221,6 +227,11 @@ class UPS extends ShippingMethodBase {
    *   The rates.
    */
   public function calculateRates(ShipmentInterface $shipment) {
+    // Only attempt to collect rates if an address exists on the shipment.
+    if ($shipment->getShippingProfile()->get('address')->isEmpty()) {
+      return [];
+    }
+
     $this->upsRateService->setShipment($shipment);
 
     return $this->upsRateService->getRates();

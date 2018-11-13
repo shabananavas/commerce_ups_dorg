@@ -109,10 +109,26 @@ class UPSShipment extends UPSEntity {
    */
   public function setDimensions(UPSPackage $ups_package) {
     $dimensions = new Dimensions();
-    $dimensions->setHeight($this->shipment->getPackageType()->getHeight()->getNumber());
-    $dimensions->setWidth($this->shipment->getPackageType()->getWidth()->getNumber());
-    $dimensions->setLength($this->shipment->getPackageType()->getLength()->getNumber());
-    $unit = $this->getUnitOfMeasure($this->shipment->getPackageType()->getLength()->getUnit());
+
+    // UPS only takes the dimensions in centimeters so we need to convert it
+    // into cm if in m/mm/in/ft.
+    $height = $this->shipment->getPackageType()->getHeight()->getNumber();
+    $length = $this->shipment->getPackageType()->getLength()->getNumber();
+    $width = $this->shipment->getPackageType()->getWidth()->getNumber();
+    $unit = $this->shipment->getPackageType()->getLength()->getUnit();
+    if ($unit != 'cm') {
+      $height = $this->convertDimensionToCentimeters($unit, $height);
+      $length = $this->convertDimensionToCentimeters($unit, $length);
+      $width = $this->convertDimensionToCentimeters($unit, $width);
+
+      // Change the unit to 'cm' now.
+      $unit = 'cm';
+    }
+
+    $dimensions->setHeight($height);
+    $dimensions->setWidth($length);
+    $dimensions->setLength($width);
+    $unit = $this->getUnitOfMeasure($unit);
     $dimensions->setUnitOfMeasurement($this->setUnitOfMeasurement($unit));
     $ups_package->setDimensions($dimensions);
   }
@@ -125,9 +141,79 @@ class UPSShipment extends UPSEntity {
    */
   public function setWeight(UPSPackage $ups_package) {
     $ups_package_weight = $ups_package->getPackageWeight();
-    $ups_package_weight->setWeight($this->shipment->getPackageType()->getWeight()->getNumber());
-    $unit = $this->getUnitOfMeasure($this->shipment->getPackageType()->getWeight()->getUnit());
+
+    // UPS only takes the weight in kilograms, so we need to convert it into kg
+    // if in g/oz/lb.
+    $weight = $this->shipment->getPackageType()->getWeight()->getNumber();
+    $unit = $this->shipment->getPackageType()->getWeight()->getUnit();
+    if ($unit != 'kg') {
+      $weight = $this->convertWeightToKilograms($unit, $weight);
+
+      // Change the unit to 'kg' now.
+      $unit = 'kg';
+    }
+
+    $ups_package_weight->setWeight($weight);
+    $unit = $this->getUnitOfMeasure($unit);
     $ups_package_weight->setUnitOfMeasurement($this->setUnitOfMeasurement($unit));
+  }
+
+  /**
+   * Converts a height/length/width dimension from m/mm/in/ft to centimeters.
+   *
+   * @param string $unit
+   *   The unit we are converting from.
+   * @param int $dimension
+   *   The height/length/width dimension in m/mm/in/ft.
+   *
+   * @return float|int
+   *   The height/length/weight in centimeters.
+   */
+  protected function convertDimensionToCentimeters($unit, $dimension) {
+    switch ($unit) {
+      // Meters.
+      case 'm':
+        return ($dimension * 100);
+
+      // Inches.
+      case 'in':
+        return ($dimension * 2.54);
+
+      // Feet.
+      case 'ft':
+        return ($dimension * 30.48);
+
+    }
+
+    // Millimeters.
+    return ($dimension * 0.1);
+  }
+
+  /**
+   * Converts a weight from g/oz/lb to kilograms.
+   *
+   * @param string $unit
+   *   The unit we are converting from.
+   * @param int $weight
+   *   The weight in g/oz/lb.
+   *
+   * @return float|int
+   *   The weight in kilograms.
+   */
+  protected function convertWeightToKilograms($unit, $weight) {
+    switch ($unit) {
+      // Ounces.
+      case 'oz':
+        return ($weight / 35.274);
+
+      // Pounds.
+      case 'lb':
+        return ($weight / 2.20462);
+
+    }
+
+    // Grams.
+    return ($weight / 1000);
   }
 
 }

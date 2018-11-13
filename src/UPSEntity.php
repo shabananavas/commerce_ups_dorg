@@ -44,10 +44,10 @@ abstract class UPSEntity {
   public function getUnitOfMeasure($unit) {
     switch ($unit) {
       case 'lb':
-        return UnitOfMeasurement::PROD_POUND;
+        return UnitOfMeasurement::PROD_POUNDS;
 
       case 'kg':
-        return UnitOfMeasurement::PROD_KILOGRAM;
+        return UnitOfMeasurement::PROD_KILOGRAMS;
 
       case 'in':
         return UnitOfMeasurement::UOM_IN;

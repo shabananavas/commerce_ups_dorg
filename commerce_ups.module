@@ -8,6 +8,11 @@
 use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
+ * The name of the logger channel to use throughout this module.
+ */
+const COMMERCE_UPS_LOGGER_CHANNEL = 'commerce_ups';
+
+/**
  * Implements hook_help().
  */
 function commerce_ups_help($route_name, RouteMatchInterface $route_match) {
