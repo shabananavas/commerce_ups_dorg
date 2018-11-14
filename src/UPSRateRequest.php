@@ -82,7 +82,10 @@ class UPSRateRequest extends UPSRequest {
 
     if (!empty($ups_rates->RatedShipment)) {
       foreach ($ups_rates->RatedShipment as $ups_rate) {
-        $service_code = $ups_rate->Service->getCode();
+        // Let's add an underscore as prefix to the code we get from UPS as the
+        // keys for the UPS shipping services start with an underscore due to a
+        // bug in the Drupal Core annotation system.
+        $service_code = '_' . $ups_rate->Service->getCode();
 
         // Only add the rate if this service is enabled.
         if (!in_array($service_code, $this->configuration['services'])) {

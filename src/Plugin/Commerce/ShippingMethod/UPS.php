@@ -14,23 +14,26 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * Creates a UPS shipping method.
  *
+ * @todo: Fix the annotation bug so we don't have to add a underscore in the
+ * services keys.
+ *
  * @CommerceShippingMethod(
  *  id = "ups",
  *  label = @Translation("UPS"),
  *  services = {
- *   "01" = @translation("UPS Next Day Air"),
- *   "02" = @translation("UPS Second Day Air"),
- *   "03" = @translation("UPS Ground"),
- *   "07" = @translation("UPS Worldwide Express"),
- *   "08" = @translation("UPS Worldwide Expedited"),
- *   "11" = @translation("UPS Standard"),
- *   "12" = @translation("UPS Three-Day Select"),
- *   "13" = @translation("Next Day Air Saver"),
- *   "14" = @translation("UPS Next Day Air Early AM"),
- *   "54" = @translation("UPS Worldwide Express Plus"),
- *   "59" = @translation("UPS Second Day Air AM"),
- *   "65" = @translation("UPS Saver"),
- *   "70" = @translation("UPS Access Point Economy"),
+ *   "_01" = @translation("UPS Next Day Air"),
+ *   "_02" = @translation("UPS Second Day Air"),
+ *   "_03" = @translation("UPS Ground"),
+ *   "_07" = @translation("UPS Worldwide Express"),
+ *   "_08" = @translation("UPS Worldwide Expedited"),
+ *   "_11" = @translation("UPS Standard"),
+ *   "_12" = @translation("UPS Three-Day Select"),
+ *   "_13" = @translation("Next Day Air Saver"),
+ *   "_14" = @translation("UPS Next Day Air Early AM"),
+ *   "_54" = @translation("UPS Worldwide Express Plus"),
+ *   "_59" = @translation("UPS Second Day Air AM"),
+ *   "_65" = @translation("UPS Saver"),
+ *   "_70" = @translation("UPS Access Point Economy"),
  *   },
  * )
  */
