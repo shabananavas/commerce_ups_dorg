@@ -55,7 +55,7 @@ class UPSShipment extends UPSEntity {
    * @param \Ups\Entity\Shipment $api_shipment
    *   A Ups API shipment object.
    */
-  public function setShipTo(APIShipment $api_shipment) {
+  protected function setShipTo(APIShipment $api_shipment) {
     $address = $this->shipment->getShippingProfile()->address;
     $to_address = new Address();
     $to_address->setAttentionName($address->given_name . ' ' . $address->family_name);
@@ -74,7 +74,7 @@ class UPSShipment extends UPSEntity {
    * @param \Ups\Entity\Shipment $api_shipment
    *   A Ups API shipment object.
    */
-  public function setShipFrom(APIShipment $api_shipment) {
+  protected function setShipFrom(APIShipment $api_shipment) {
     $address = $this->shipment->getOrder()->getStore()->getAddress();
     $from_address = new Address();
     $from_address->setAddressLine1($address->getAddressLine1());
@@ -94,7 +94,7 @@ class UPSShipment extends UPSEntity {
    * @param \Ups\Entity\Shipment $api_shipment
    *   A Ups API shipment object.
    */
-  public function setPackage(APIShipment $api_shipment) {
+  protected function setPackage(APIShipment $api_shipment) {
     $package = new UPSPackage();
     $this->setDimensions($package);
     $this->setWeight($package);
@@ -107,7 +107,7 @@ class UPSShipment extends UPSEntity {
    * @param \Ups\Entity\Package $ups_package
    *   A Ups API package object.
    */
-  public function setDimensions(UPSPackage $ups_package) {
+  protected function setDimensions(UPSPackage $ups_package) {
     $dimensions = new Dimensions();
 
     // UPS only takes the dimensions in certain units, so we need to convert it
@@ -139,7 +139,7 @@ class UPSShipment extends UPSEntity {
    * @param \Ups\Entity\Package $ups_package
    *   A package object from the Ups API.
    */
-  public function setWeight(UPSPackage $ups_package) {
+  protected function setWeight(UPSPackage $ups_package) {
     $ups_package_weight = $ups_package->getPackageWeight();
 
     // UPS only takes certain weights, so we need to convert it into kg if in

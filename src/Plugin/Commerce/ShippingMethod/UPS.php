@@ -8,8 +8,8 @@ use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
 use Drupal\commerce_ups\UPSRequestInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
-use function substr;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use function \substr;
 
 /**
  * Creates a UPS shipping method.
@@ -21,26 +21,26 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  *  id = "ups",
  *  label = @Translation("UPS"),
  *  services = {
- *   "_01" = @translation("UPS Next Day Air"),
- *   "_02" = @translation("UPS Second Day Air"),
- *   "_03" = @translation("UPS Ground"),
- *   "_07" = @translation("UPS Worldwide Express"),
- *   "_08" = @translation("UPS Worldwide Expedited"),
- *   "_11" = @translation("UPS Standard"),
- *   "_12" = @translation("UPS Three-Day Select"),
- *   "_13" = @translation("Next Day Air Saver"),
- *   "_14" = @translation("UPS Next Day Air Early AM"),
- *   "_54" = @translation("UPS Worldwide Express Plus"),
- *   "_59" = @translation("UPS Second Day Air AM"),
- *   "_65" = @translation("UPS Saver"),
- *   "_70" = @translation("UPS Access Point Economy"),
- *   },
+ *    "_01" = @translation("UPS Next Day Air"),
+ *    "_02" = @translation("UPS Second Day Air"),
+ *    "_03" = @translation("UPS Ground"),
+ *    "_07" = @translation("UPS Worldwide Express"),
+ *    "_08" = @translation("UPS Worldwide Expedited"),
+ *    "_11" = @translation("UPS Standard"),
+ *    "_12" = @translation("UPS Three-Day Select"),
+ *    "_13" = @translation("Next Day Air Saver"),
+ *    "_14" = @translation("UPS Next Day Air Early AM"),
+ *    "_54" = @translation("UPS Worldwide Express Plus"),
+ *    "_59" = @translation("UPS Second Day Air AM"),
+ *    "_65" = @translation("UPS Saver"),
+ *    "_70" = @translation("UPS Access Point Economy"),
+ *  },
  * )
  */
 class UPS extends ShippingMethodBase {
 
   /**
-   * The UPSRateRequest class.
+   * The service for fetching shipping rates from UPS.
    *
    * @var \Drupal\commerce_ups\UPSRateRequest
    */
@@ -141,12 +141,14 @@ class UPS extends ShippingMethodBase {
       $this->configuration['services'] = array_combine($service_ids, $service_ids);
     }
 
+    $description = $this->t('Update your UPS API information');
+    if (!$this->isConfigured()) {
+      $description = $this->t('Fill in your UPS API information.');
+    }
     $form['api_information'] = [
       '#type' => 'details',
       '#title' => $this->t('API information'),
-      '#description' => $this->isConfigured()
-      ? $this->t('Update your UPS API information.')
-      : $this->t('Fill in your UPS API information.'),
+      '#description' => $description,
       '#weight' => $this->isConfigured() ? 10 : -10,
       '#open' => !$this->isConfigured(),
     ];
@@ -223,8 +225,7 @@ class UPS extends ShippingMethodBase {
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     parent::validateConfigurationForm($form, $form_state);
 
-    // Ensure the package type selected for this method doesn't have an empty
-    // weight as the UPS API will throw an error when calculating rates.
+    // The weight for package types used by UPS shipping services cannot be 0.
     $values = $form_state->getValue($form['#parents']);
     $package_type = $this->entityTypeManager->getStorage('commerce_package_type')->loadByProperties([
       'uuid' => substr($values['default_package_type'], 22)
