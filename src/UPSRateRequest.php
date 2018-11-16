@@ -7,6 +7,7 @@ use Drupal\commerce_price\Price;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\ShippingRate;
 use Drupal\commerce_shipping\ShippingService;
+use Drupal\Core\Datetime\DrupalDateTime;
 use Ups\Rate;
 use Ups\Entity\RateInformation;
 
@@ -74,6 +75,14 @@ class UPSRateRequest extends UPSRequest {
 
       // Shop Rates.
       $ups_rates = $request->shopRates($shipment);
+
+      // Create a time in transit object so we can get the transit time for this
+      // shipment.
+      $time_in_transit = new UPSTransitRequest(
+        $this->configuration,
+        $this->commerceShipment,
+        $shipment
+      );
     }
     catch (\Exception $ex) {
       \Drupal::logger(COMMERCE_UPS_LOGGER_CHANNEL)->error($ex->getMessage());
@@ -96,18 +105,29 @@ class UPSRateRequest extends UPSRequest {
         $currency = $ups_rate->TotalCharges->CurrencyCode;
         $price = new Price((string) $cost, $currency);
         $service_name = $ups_rate->Service->getName();
+        $date = new DrupalDateTime();
+        $date->format('Y-m-d');
 
         $shipping_service = new ShippingService(
           $service_name,
           $service_name
         );
-        $rates[] = new ShippingRate(
-          $service_code,
-          $shipping_service,
-          $price
-        );
+
+        if (isset($time_in_transit)) {
+          $times = $time_in_transit->getTransitTime();
+
+          foreach ($times->ServiceSummary as $serviceSummary) {
+            $rates[] = new ShippingRate(
+              $service_code,
+              $shipping_service,
+              $price,
+              $date::createFromFormat('Y-m-d', $serviceSummary->EstimatedArrival->getDate())
+            );
+          }
+        }
       }
     }
+
     return $rates;
   }
 
