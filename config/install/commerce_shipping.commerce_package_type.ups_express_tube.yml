@@ -1,0 +1,19 @@
+# Domestic and International package types provided by UPS.
+# https://www.ups.com/us/en/help-center/packaging-and-supplies/supplies-forms/boxes-and-tubes.page
+# https://www.ups.com/al/en/help-center/packaging-and-supplies/supplies-forms/boxes-and-tubes.page
+id: ups_express_tube
+remote_id: 03
+label: 'UPS Express Tube'
+dimensions:
+  length: 38
+  width: 6
+  height: 6
+  unit: 'in'
+shipping_method: 'ups'
+weight:
+  number: 0
+  unit: 'lb'
+
+commerce_package_type:
+  class: \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageType
+  deriver: \Drupal\commerce_shipping\Plugin\Deriver\PackageTypeDeriver

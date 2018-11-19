@@ -1,0 +1,19 @@
+# Domestic and International package types provided by UPS.
+# https://www.ups.com/us/en/help-center/packaging-and-supplies/supplies-forms/boxes-and-tubes.page
+# https://www.ups.com/al/en/help-center/packaging-and-supplies/supplies-forms/boxes-and-tubes.page
+id: ups_10kg_box
+remote_id: 25
+label: 'UPS 10 KG Box'
+dimensions:
+  length: 410
+  width: 355
+  height: 265
+  unit: 'mm'
+weight:
+  number: 10
+  unit: 'kg'
+shipping_method: 'ups'
+
+commerce_package_type:
+  class: \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageType
+  deriver: \Drupal\commerce_shipping\Plugin\Deriver\PackageTypeDeriver
