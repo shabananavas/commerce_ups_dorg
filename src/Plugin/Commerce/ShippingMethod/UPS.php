@@ -92,8 +92,7 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
       $plugin_id,
       $plugin_definition,
       $container->get('plugin.manager.commerce_package_type'),
-      $container->get('commerce_ups.ups_rate_request'),
-      $container->get('entity_type.manager')
+      $container->get('commerce_ups.ups_rate_request')
     );
   }
 
