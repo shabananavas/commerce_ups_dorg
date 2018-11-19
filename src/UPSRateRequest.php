@@ -107,7 +107,7 @@ class UPSRateRequest extends UPSRequest implements UPSRateRequestInterface {
       // shipment.
       $time_in_transit = new UPSTransitRequest(
         $this->configuration,
-        $this->commerceShipment,
+        $commerce_shipment,
         $shipment
       );
     }
@@ -154,7 +154,7 @@ class UPSRateRequest extends UPSRequest implements UPSRateRequestInterface {
               $service_code,
               $shipping_service,
               $price,
-              $date::createFromFormat('Y-m-d', $serviceSummary->EstimatedArrival->Date)
+              $date::createFromFormat('Y-m-d', $serviceSummary->EstimatedArrival->getDate())
             );
           }
         }
