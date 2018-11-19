@@ -24,6 +24,29 @@ abstract class UPSRequest implements UPSRequestInterface {
   }
 
   /**
+   * Returns authentication array for a request.
+   *
+   * @return array
+   *   An array of authentication parameters.
+   *
+   * @throws \Exception
+   */
+  public function getAuth() {
+    // Verify necessary configuration is available.
+    if (empty($this->configuration['api_information']['access_key'])
+      || empty($this->configuration['api_information']['user_id'])
+      || empty($this->configuration['api_information']['password'])) {
+      throw new \Exception('Configuration is required.');
+    }
+
+    return [
+      'access_key' => $this->configuration['api_information']['access_key'],
+      'user_id' => $this->configuration['api_information']['user_id'],
+      'password' => $this->configuration['api_information']['password'],
+    ];
+  }
+
+  /**
    * Determine if integration mode (test or live) should be used.
    *
    * @return bool
@@ -38,29 +61,6 @@ abstract class UPSRequest implements UPSRequestInterface {
 
     // Use integration mode by default.
     return TRUE;
-  }
-
-  /**
-   * Returns authentication array for a request.
-   *
-   * @return array
-   *   An array of authentication parameters.
-   *
-   * @throws \Exception
-   */
-  protected function getAuth() {
-    // Verify necessary configuration is available.
-    if (empty($this->configuration['api_information']['access_key'])
-    || empty($this->configuration['api_information']['user_id'])
-    || empty($this->configuration['api_information']['password'])) {
-      throw new \Exception('Configuration is required.');
-    }
-
-    return [
-      'access_key' => $this->configuration['api_information']['access_key'],
-      'user_id' => $this->configuration['api_information']['user_id'],
-      'password' => $this->configuration['api_information']['password'],
-    ];
   }
 
 }
