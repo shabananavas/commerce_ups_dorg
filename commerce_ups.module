@@ -22,8 +22,7 @@ function commerce_ups_help($route_name, RouteMatchInterface $route_match) {
       $output = '';
       $output .= '<h3>' . t('About') . '</h3>';
       $output .= '<p>' . t('UPS Shipping Module for Drupal 8') . '</p>';
-      return $output;
 
-    default:
+      return $output;
   }
 }

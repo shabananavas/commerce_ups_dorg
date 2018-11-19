@@ -16,7 +16,7 @@ commerce_shipping.commerce_shipping_method.plugin.ups:
           label: 'Password'
         mode:
           type: boolean
-          label: 'Choose whether to use the test or live mode'
+          label: 'Choose whether to use test or live mode'
     rate_options:
       type: mapping
       label: 'UPS Rating Options'
@@ -28,6 +28,9 @@ commerce_shipping.commerce_shipping_method.plugin.ups:
       type: mapping
       label: 'UPS Options'
       mapping:
+        tracking_url:
+          type: string
+          label: 'Tracking URL'
         log:
           type: mapping
           label: 'Log the following messages for debugging'

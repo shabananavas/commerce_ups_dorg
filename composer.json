@@ -13,10 +13,5 @@
   "require": {
     "drupal/commerce_shipping": "2.x-dev",
     "gabrielbull/ups-api": "~0.7"
-  },
-  "patches": {
-    "drupal/commerce": {
-      "Package Type is not set when calculating rates": "https://www.drupal.org/files/issues/2018-07-27/commerce_shipping-empty_package_type-2988710-3.patch"
-    }
   }
 }

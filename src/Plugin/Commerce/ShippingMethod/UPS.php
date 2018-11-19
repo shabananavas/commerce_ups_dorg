@@ -5,17 +5,16 @@ namespace Drupal\commerce_ups\Plugin\Commerce\ShippingMethod;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
+use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\SupportsTrackingInterface;
 use Drupal\commerce_ups\UPSRequestInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use function \substr;
 
 /**
  * Creates a UPS shipping method.
- *
- * @todo: Fix the annotation bug so we don't have to add a underscore in the
- * services keys.
  *
  * @CommerceShippingMethod(
  *  id = "ups",
@@ -34,10 +33,10 @@ use function \substr;
  *    "_59" = @translation("UPS Second Day Air AM"),
  *    "_65" = @translation("UPS Saver"),
  *    "_70" = @translation("UPS Access Point Economy"),
- *  },
+ *  }
  * )
  */
-class UPS extends ShippingMethodBase {
+class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
 
   /**
    * The service for fetching shipping rates from UPS.
@@ -77,6 +76,9 @@ class UPS extends ShippingMethodBase {
     UPSRequestInterface $ups_rate_request,
     EntityTypeManagerInterface $entity_type_manager
   ) {
+    // Rewrite the service keys to be integers.
+    $plugin_definition = $this->preparePluginDefinition($plugin_definition);
+
     parent::__construct(
       $configuration,
       $plugin_id,
@@ -86,7 +88,6 @@ class UPS extends ShippingMethodBase {
 
     $this->upsRateService = $ups_rate_request;
     $this->upsRateService->setConfig($configuration);
-
     $this->entityTypeManager = $entity_type_manager;
   }
 
@@ -110,6 +111,35 @@ class UPS extends ShippingMethodBase {
   }
 
   /**
+   * Prepares the service array keys to support integer values.
+   *
+   * See https://www.drupal.org/node/2904467 for more information.
+   *
+   * @TODO: Remove once core issue has been addressed.
+   *
+   * @param array $plugin_definition
+   *   The plugin definition provided to the class.
+   *
+   * @return array
+   *   The prepared plugin definition.
+   */
+  private function preparePluginDefinition(array $plugin_definition) {
+    // Cache and unset the parsed plugin definitions for services.
+    $services = $plugin_definition['services'];
+    unset($plugin_definition['services']);
+
+    // Loop over each service definition and redefine them with
+    // integer keys that match the UPS API.
+    foreach ($services as $key => $service) {
+      // Remove the "_" from the service key.
+      $key_trimmed = str_replace('_', '', $key);
+      $plugin_definition['services'][$key_trimmed] = $service;
+    }
+
+    return $plugin_definition;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
@@ -124,6 +154,7 @@ class UPS extends ShippingMethodBase {
         'rate_type' => 0,
       ] ,
       'options' => [
+        'tracking_url' => 'https://wwwapps.ups.com/tracking/tracking.cgi?tracknum=[tracking_code]',
         'log' => [],
       ],
     ] + parent::defaultConfiguration();
@@ -206,6 +237,16 @@ class UPS extends ShippingMethodBase {
       '#title' => $this->t('UPS Options'),
       '#description' => $this->t('Additional options for UPS'),
     ];
+    $form['options']['tracking_url'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Tracking URL base'),
+      '#description' => $this->t(
+        'The base URL for assembling a tracking URL. If the [tracking_code]
+         token is omitted, the code will be appended to the end of the URL
+          (e.g. "https://wwwapps.ups.com/tracking/tracking.cgi?tracknum=123456789")'
+      ),
+      '#default_value' => $this->configuration['options']['tracking_url'],
+    ];
     $form['options']['log'] = [
       '#type' => 'checkboxes',
       '#title' => $this->t('Log the following messages for debugging'),
@@ -228,7 +269,7 @@ class UPS extends ShippingMethodBase {
     // The weight for package types used by UPS shipping services cannot be 0.
     $values = $form_state->getValue($form['#parents']);
     $package_type = $this->entityTypeManager->getStorage('commerce_package_type')->loadByProperties([
-      'uuid' => substr($values['default_package_type'], 22)
+      'uuid' => substr($values['default_package_type'], 22),
     ]);
     /** @var \Drupal\commerce_shipping\Entity\PackageTypeInterface $package_type */
     $package_type = reset($package_type);
@@ -277,9 +318,33 @@ class UPS extends ShippingMethodBase {
       return [];
     }
 
-    $this->upsRateService->setShipment($shipment);
+    return $this->upsRateService->getRates($shipment, $this);
+  }
 
-    return $this->upsRateService->getRates();
+  /**
+   * Returns a tracking URL for UPS shipments.
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The commerce shipment.
+   *
+   * @return mixed
+   *   The URL object or FALSE.
+   */
+  public function getTrackingUrl(ShipmentInterface $shipment) {
+    $code = $shipment->getTrackingCode();
+    if (!empty($code)) {
+      // If the tracking code token exists, replace it with the code.
+      if (strstr($this->configuration['options']['tracking_url'], '[tracking_code]')) {
+        $url = str_replace('[tracking_code]', $code, $this->configuration['options']['tracking_url']);
+      }
+      else {
+        // Otherwise, append the tracking code to the end of the URL.
+        $url = $this->configuration['options']['tracking_url'] . $code;
+      }
+
+      return Url::fromUri($url);
+    }
+    return FALSE;
   }
 
   /**

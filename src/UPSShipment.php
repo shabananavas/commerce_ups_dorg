@@ -3,18 +3,23 @@
 namespace Drupal\commerce_ups;
 
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
+use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface;
+use Drupal\physical\LengthUnit;
+use Drupal\physical\WeightUnit;
 use Ups\Entity\Package as UPSPackage;
 use Ups\Entity\Address;
+use Ups\Entity\PackageWeight;
+use Ups\Entity\PackagingType;
 use Ups\Entity\ShipFrom;
 use Ups\Entity\Shipment as APIShipment;
 use Ups\Entity\Dimensions;
 
 /**
- * Constructs and extends the UPS shipment entity.
+ * Class to create and return a UPS API shipment object.
  *
  * @package Drupal\commerce_ups
  */
-class UPSShipment extends UPSEntity {
+class UPSShipment extends UPSEntity implements UPSShipmentInterface {
 
   /**
    * The commerce shipment interface.
@@ -24,28 +29,34 @@ class UPSShipment extends UPSEntity {
   protected $shipment;
 
   /**
-   * UPSShipment constructor.
+   * The shipping method.
    *
-   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
-   *   A commerce shipping shipment object.
+   * @var \Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface
    */
-  public function __construct(ShipmentInterface $shipment) {
-    parent::__construct();
-
-    $this->shipment = $shipment;
-  }
+  protected $shippingMethod;
 
   /**
-   * Creates and returns a Ups API shipment object.
+   * Creates and returns a UPS API shipment object.
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The shipment.
+   * @param \Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface $shipping_method
+   *   The shipping method.
    *
    * @return \Ups\Entity\Shipment
    *   A Ups API shipment object.
+   *
+   * @throws \Drupal\Core\TypedData\Exception\MissingDataException
    */
-  public function getShipment() {
+  public function getShipment(ShipmentInterface $shipment, ShippingMethodInterface $shipping_method) {
+    $this->shipment = $shipment;
+    $this->shippingMethod = $shipping_method;
     $api_shipment = new APIShipment();
+
     $this->setShipTo($api_shipment);
     $this->setShipFrom($api_shipment);
     $this->setPackage($api_shipment);
+
     return $api_shipment;
   }
 
@@ -54,17 +65,21 @@ class UPSShipment extends UPSEntity {
    *
    * @param \Ups\Entity\Shipment $api_shipment
    *   A Ups API shipment object.
+   *
+   * @throws \Drupal\Core\TypedData\Exception\MissingDataException
    */
-  protected function setShipTo(APIShipment $api_shipment) {
-    $address = $this->shipment->getShippingProfile()->address;
+  public function setShipTo(APIShipment $api_shipment) {
+    /** @var \CommerceGuys\Addressing\AddressInterface $address */
+    $address = $this->shipment->getShippingProfile()->get('address')->first();
     $to_address = new Address();
-    $to_address->setAttentionName($address->given_name . ' ' . $address->family_name);
-    $to_address->setAddressLine1($address->address_line1);
-    $to_address->setAddressLine2($address->address_line2);
-    $to_address->setCity($address->locality);
-    $to_address->setStateProvinceCode($address->administrative_area);
-    $to_address->setPostalCode($address->postal_code);
-    $to_address->setCountryCode($address->country_code);
+
+    $to_address->setAddressLine1($address->getAddressLine1());
+    $to_address->setAddressLine2($address->getAddressLine2());
+    $to_address->setCity($address->getLocality());
+    $to_address->setCountryCode($address->getCountryCode());
+    $to_address->setStateProvinceCode($address->getAdministrativeArea());
+    $to_address->setPostalCode($address->getPostalCode());
+
     $api_shipment->getShipTo()->setAddress($to_address);
   }
 
@@ -74,17 +89,21 @@ class UPSShipment extends UPSEntity {
    * @param \Ups\Entity\Shipment $api_shipment
    *   A Ups API shipment object.
    */
-  protected function setShipFrom(APIShipment $api_shipment) {
+  public function setShipFrom(APIShipment $api_shipment) {
+    /** @var \CommerceGuys\Addressing\AddressInterface $address */
     $address = $this->shipment->getOrder()->getStore()->getAddress();
     $from_address = new Address();
+
     $from_address->setAddressLine1($address->getAddressLine1());
     $from_address->setAddressLine2($address->getAddressLine2());
-    $from_address->setCity($address->getDependentLocality());
+    $from_address->setCity($address->getLocality());
+    $from_address->setCountryCode($address->getCountryCode());
     $from_address->setStateProvinceCode($address->getAdministrativeArea());
     $from_address->setPostalCode($address->getPostalCode());
-    $from_address->setCountryCode($address->getCountryCode());
+
     $ship_from = new ShipFrom();
     $ship_from->setAddress($from_address);
+
     $api_shipment->setShipFrom($ship_from);
   }
 
@@ -96,8 +115,11 @@ class UPSShipment extends UPSEntity {
    */
   protected function setPackage(APIShipment $api_shipment) {
     $package = new UPSPackage();
+
     $this->setDimensions($package);
     $this->setWeight($package);
+    $this->setPackagingType($package);
+
     $api_shipment->addPackage($package);
   }
 
@@ -107,29 +129,35 @@ class UPSShipment extends UPSEntity {
    * @param \Ups\Entity\Package $ups_package
    *   A Ups API package object.
    */
-  protected function setDimensions(UPSPackage $ups_package) {
+  public function setDimensions(UPSPackage $ups_package) {
     $dimensions = new Dimensions();
 
-    // UPS only takes the dimensions in certain units, so we need to convert it
-    // into cm if in m/mm/ft which the Drupal physical module does.
-    $height = $this->shipment->getPackageType()->getHeight()->getNumber();
-    $length = $this->shipment->getPackageType()->getLength()->getNumber();
-    $width = $this->shipment->getPackageType()->getWidth()->getNumber();
-    $unit = $this->shipment->getPackageType()->getLength()->getUnit();
-    if ($unit == 'm' || $unit == 'mm' || $unit == 'ft') {
-      $height = $this->convertDimensionToCentimeters($unit, $height);
-      $length = $this->convertDimensionToCentimeters($unit, $length);
-      $width = $this->convertDimensionToCentimeters($unit, $width);
+    $valid_unit = $this->getValidDimensionsUnit();
 
-      // Change the unit to 'cm' now.
-      $unit = 'cm';
-    }
+    // Rounding dimensions since decimals are not allowed by the UPS API.
+    $dimensions->setHeight(ceil($this
+      ->getPackageType()
+      ->getHeight()
+      ->convert($valid_unit)
+      ->getNumber()
+    ));
+    $dimensions->setWidth(ceil($this
+      ->getPackageType()
+      ->getWidth()
+      ->convert($valid_unit)
+      ->getNumber()
+    ));
+    $dimensions->setLength(ceil($this
+      ->getPackageType()
+      ->getLength()
+      ->convert($valid_unit)
+      ->getNumber()
+    ));
+    $dimensions->setUnitOfMeasurement($this
+      ->setUnitOfMeasurement($this
+        ->getUnitOfMeasure($valid_unit)
+      ));
 
-    $dimensions->setHeight($height);
-    $dimensions->setWidth($length);
-    $dimensions->setLength($width);
-    $unit = $this->getUnitOfMeasure($unit);
-    $dimensions->setUnitOfMeasurement($this->setUnitOfMeasurement($unit));
     $ups_package->setDimensions($dimensions);
   }
 
@@ -139,73 +167,74 @@ class UPSShipment extends UPSEntity {
    * @param \Ups\Entity\Package $ups_package
    *   A package object from the Ups API.
    */
-  protected function setWeight(UPSPackage $ups_package) {
-    $ups_package_weight = $ups_package->getPackageWeight();
+  public function setWeight(UPSPackage $ups_package) {
+    $weight = $this->shipment->getWeight()->convert($this->getValidWeightUnit());
 
-    // UPS only takes certain weights, so we need to convert it into kg if in
-    // g/oz which the Drupal physical module does.
-    $weight = $this->shipment->getPackageType()->getWeight()->getNumber();
-    $unit = $this->shipment->getPackageType()->getWeight()->getUnit();
-    if ($unit == 'oz' || $unit == 'g') {
-      $weight = $this->convertWeightToKilograms($unit, $weight);
+    $ups_package_weight = new PackageWeight();
+    $ups_package_weight->setWeight($weight->getNumber());
+    $ups_package_weight->setUnitOfMeasurement($this
+      ->setUnitOfMeasurement($this
+        ->getUnitOfMeasure($weight->getUnit()
+      ))
+    );
 
-      // Change the unit to 'kg' now.
-      $unit = 'kg';
-    }
-
-    $ups_package_weight->setWeight($weight);
-    $unit = $this->getUnitOfMeasure($unit);
-    $ups_package_weight->setUnitOfMeasurement($this->setUnitOfMeasurement($unit));
+    $ups_package->setPackageWeight($ups_package_weight);
   }
 
   /**
-   * Converts a height/length/width dimension from m/mm/ft to centimeters.
+   * Sets the package type for a UPS package.
    *
-   * @param string $unit
-   *   The unit we are converting from.
-   * @param int $dimension
-   *   The height/length/width dimension in m/mm/ft.
-   *
-   * @return float|int
-   *   The height/length/weight in centimeters.
+   * @param \Ups\Entity\Package $ups_package
+   *   A Ups API package entity.
    */
-  protected function convertDimensionToCentimeters($unit, $dimension) {
-    switch ($unit) {
-      // Meters.
-      case 'm':
-        return ($dimension * 100);
+  public function setPackagingType(UPSPackage $ups_package) {
+    $remote_id = $this->getPackageType()->getRemoteId();
+    $attributes = new \stdClass();
+    $attributes->Code = !empty($remote_id) && $remote_id != 'custom' ? $remote_id : PackagingType::PT_UNKNOWN;
 
-      // Inches.
-      case 'mm':
-        return ($dimension * 0.1);
+    $ups_package->setPackagingType(new PackagingType($attributes));
+  }
 
-      // Feet.
-      case 'ft':
-        return ($dimension * 30.48);
+  /**
+   * Determine the package type for the shipment.
+   *
+   * @return \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface
+   *   The package type.
+   */
+  protected function getPackageType() {
+    // If the package is set on the shipment, use that.
+    if (!empty($this->shipment->getPackageType())) {
+      return $this->shipment->getPackageType();
+    }
+    // Or use the default package type for the shipping method.
+    else {
+      return $this->shippingMethod->getDefaultPackageType();
     }
   }
 
   /**
-   * Converts a weight from g/oz to kilograms.
+   * Get valid dimensions measurement unit for a current store address.
    *
-   * @param string $unit
-   *   The unit we are converting from.
-   * @param int $weight
-   *   The weight in g/oz.
-   *
-   * @return float|int
-   *   The weight in kilograms.
+   * @return string
+   *   Valid measurement unit.
    */
-  protected function convertWeightToKilograms($unit, $weight) {
-    switch ($unit) {
-      // Ounces.
-      case 'oz':
-        return ($weight / 35.274);
+  protected function getValidDimensionsUnit() {
+    $address = $this->shipment->getOrder()->getStore()->getAddress();
 
-      // Grams.
-      case 'g':
-        return ($weight / 1000);
-    }
+    return $address->getCountryCode() == 'US' ? LengthUnit::INCH : LengthUnit::CENTIMETER;
+  }
+
+  /**
+   * Get valid weight measurement unit for a current store address.
+   *
+   * @return string
+   *   Valid measurement unit.
+   */
+  protected function getValidWeightUnit() {
+    /** @var \CommerceGuys\Addressing\Address $address */
+    $address = $this->shipment->getOrder()->getStore()->getAddress();
+
+    return $address->getCountryCode() == 'US' ? WeightUnit::POUND : WeightUnit::KILOGRAM;
   }
 
 }
