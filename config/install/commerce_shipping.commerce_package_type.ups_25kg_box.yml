@@ -1,0 +1,19 @@
+# Domestic and International package types provided by UPS.
+# https://www.ups.com/us/en/help-center/packaging-and-supplies/supplies-forms/boxes-and-tubes.page
+# https://www.ups.com/al/en/help-center/packaging-and-supplies/supplies-forms/boxes-and-tubes.page
+id: ups_25kg_box
+remote_id: 24
+label: 'UPS 25 KG Box'
+dimensions:
+  length: 484
+  width: 433
+  height: 350
+  unit: 'mm'
+weight:
+  number: 25
+  unit: 'kg'
+shipping_method: 'ups'
+
+commerce_package_type:
+  class: \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageType
+  deriver: \Drupal\commerce_shipping\Plugin\Deriver\PackageTypeDeriver
