@@ -13,10 +13,13 @@ use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterf
 interface UPSShipmentInterface {
 
   /**
+   * Creates and returns a UPS API shipment object.
+   *
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
    * @param \Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface $shipping_method
    *   The shipping method.
+   *
    * @return \Ups\Entity\Shipment
    *   A Ups API shipment object.
    */
