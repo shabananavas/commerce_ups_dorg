@@ -2,21 +2,22 @@
 
 namespace Drupal\commerce_ups;
 
+use const COMMERCE_UPS_LOGGER_CHANNEL;
 use DateInterval;
 use DateTime;
 use Drupal;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
+use Drupal\physical\WeightUnit;
 use Ups\Entity\AddressArtifactFormat;
 use Ups\Entity\InvoiceLineTotal;
 use Ups\Entity\Shipment;
 use Ups\Entity\ShipmentWeight;
 use Ups\Entity\TimeInTransitRequest;
+use Ups\Entity\UnitOfMeasurement;
 use Ups\TimeInTransit;
 
 /**
  * Class to fetch the transit time for a shipment.
- *
- * Extends UPSRateRequest so that we can access some of the generic methods.
  *
  * @package Drupal\commerce_ups
  */
@@ -34,7 +35,7 @@ class UPSTransitRequest extends UPSRateRequest {
    *
    * @var \Drupal\commerce_shipping\Entity\ShipmentInterface
    */
-  protected $commerceShipment;
+  protected $shipment;
 
   /**
    * The UPS shipment entity.
@@ -55,18 +56,18 @@ class UPSTransitRequest extends UPSRateRequest {
    *
    * @param array $configuration
    *   array of authentication information for UPS.
-   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $commerce_shipment
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   Commerce shipment object.
    * @param \Ups\Entity\Shipment $api_shipment
    *   UPS Shipment Object.
    */
   public function __construct(
     array $configuration,
-    ShipmentInterface $commerce_shipment,
+    ShipmentInterface $shipment,
     Shipment $api_shipment
   ) {
     $this->configuration = $configuration;
-    $this->commerceShipment = $commerce_shipment;
+    $this->shipment = $shipment;
     $this->upsShipment = $api_shipment;
     $this->request = new TimeInTransitRequest();
   }
@@ -102,17 +103,16 @@ class UPSTransitRequest extends UPSRateRequest {
   protected function setAddressArtifacts() {
     $ship_from_artifact = new AddressArtifactFormat();
     $ship_to_artifact = new AddressArtifactFormat();
-    $address = $this->commerceShipment->getOrder()
-      ->getStore()
-      ->getAddress();
-    $ship_from_artifact->setPoliticalDivision3($address->getLocality());
 
-    $ship_from_artifact->setPostcodePrimaryLow($address->getPostalCode());
-    $ship_from_artifact->setCountryCode($address->getCountryCode());
+    $ship_from_address = $this->shipment->getOrder()->getStore()->getAddress();
+    $ship_from_artifact->setPoliticalDivision3($ship_from_address->getLocality());
+    $ship_from_artifact->setPostcodePrimaryLow($ship_from_address->getPostalCode());
+    $ship_from_artifact->setCountryCode($ship_from_address->getCountryCode());
 
-    $ship_to_artifact->setPoliticalDivision3($address->getLocality());
-    $ship_to_artifact->setPostcodePrimaryLow($address->getPostalCode());
-    $ship_to_artifact->setCountryCode('US');
+    $ship_to_address = $this->shipment->getOrder()->getStore()->getAddress();
+    $ship_to_artifact->setPoliticalDivision3($ship_to_address->getLocality());
+    $ship_to_artifact->setPostcodePrimaryLow($ship_to_address->getPostalCode());
+    $ship_to_artifact->setCountryCode($ship_to_address->getCountryCode());
 
     $artifacts = [
       'ship_from' => $ship_from_artifact,
@@ -128,7 +128,8 @@ class UPSTransitRequest extends UPSRateRequest {
    */
   protected function setInvoiceLines() {
     $invoiceLineTotal = new InvoiceLineTotal();
-    $subtotal_price = $this->commerceShipment->getOrder()->getSubtotalPrice();
+
+    $subtotal_price = $this->shipment->getOrder()->getSubtotalPrice();
     $invoiceLineTotal->setMonetaryValue($subtotal_price->getNumber());
     $invoiceLineTotal->setCurrencyCode($subtotal_price->getCurrencyCode());
 
@@ -140,8 +141,15 @@ class UPSTransitRequest extends UPSRateRequest {
    */
   protected function setWeight() {
     $shipWeight = new ShipmentWeight();
-    $commerce_weight = $this->commerceShipment->getWeight()->getNumber();
-    $shipWeight->setWeight($commerce_weight);
+
+    // The package and shipment weights are both derived from the commerce
+    // shipment entity, so let's just get the weight from the package because
+    // the weight has already been converted to the correct units there.
+    $packages = $this->upsShipment->getPackages();
+    $package = reset($packages);
+
+    $shipWeight->setWeight($package->getPackageWeight()->getWeight());
+    $shipWeight->setUnitOfMeasurement($package->getPackageWeight()->getUnitOfMeasurement());
 
     $this->request->setShipmentWeight($shipWeight);
   }

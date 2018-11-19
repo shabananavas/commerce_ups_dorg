@@ -2,6 +2,7 @@
 
 namespace Drupal\Tests\commerce_ups\Unit;
 
+use Drupal\commerce_price\Price;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface;
 use Drupal\Tests\UnitTestCase;
 use Drupal\Core\Field\FieldItemListInterface;
@@ -34,6 +35,7 @@ abstract class UPSUnitTestBase extends UnitTestCase {
    */
   protected function setUp() {
     parent::setUp();
+
     $this->configuration = [
       'api_information' => [
         'access_key' => '5D3096C1F3C7953D',
@@ -91,6 +93,7 @@ abstract class UPSUnitTestBase extends UnitTestCase {
       $store->getAddress()->willReturn(new Address('DE', '', 'Darmstadt', '', 64283, '', 'Schlossgraben 1'));
     }
     $order->getStore()->willReturn($store->reveal());
+    $order->getSubtotalPrice()->willReturn(new Price('13.99', 'USD'));
 
     // Mock a Drupal Commerce shipment and associated objects.
     $shipment = $this->prophesize(ShipmentInterface::class);
