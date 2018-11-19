@@ -7,11 +7,9 @@ use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\SupportsTrackingInterface;
 use Drupal\commerce_ups\UPSRequestInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use function \substr;
 
 /**
  * Creates a UPS shipping method.
@@ -46,13 +44,6 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
   protected $upsRateService;
 
   /**
-   * The entity type manager.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected $entityTypeManager;
-
-  /**
    * Constructs a new ShippingMethodBase object.
    *
    * @param array $configuration
@@ -65,16 +56,13 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
    *   The package type manager.
    * @param \Drupal\commerce_ups\UPSRequestInterface $ups_rate_request
    *   The rate request service.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
    */
   public function __construct(
     array $configuration,
     $plugin_id,
     $plugin_definition,
     PackageTypeManagerInterface $packageTypeManager,
-    UPSRequestInterface $ups_rate_request,
-    EntityTypeManagerInterface $entity_type_manager
+    UPSRequestInterface $ups_rate_request
   ) {
     // Rewrite the service keys to be integers.
     $plugin_definition = $this->preparePluginDefinition($plugin_definition);
@@ -88,7 +76,6 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
 
     $this->upsRateService = $ups_rate_request;
     $this->upsRateService->setConfig($configuration);
-    $this->entityTypeManager = $entity_type_manager;
   }
 
   /**
@@ -258,31 +245,6 @@ class UPS extends ShippingMethodBase implements SupportsTrackingInterface {
     ];
 
     return $form;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
-    parent::validateConfigurationForm($form, $form_state);
-
-    // The weight for package types used by UPS shipping services cannot be 0.
-    $values = $form_state->getValue($form['#parents']);
-    $package_type = $this->entityTypeManager->getStorage('commerce_package_type')->loadByProperties([
-      'uuid' => substr($values['default_package_type'], 22),
-    ]);
-    /** @var \Drupal\commerce_shipping\Entity\PackageTypeInterface $package_type */
-    $package_type = reset($package_type);
-
-    // Validate the weight.
-    $actual_weight = $package_type->getWeight();
-    if ($actual_weight['number'] == 0) {
-      $form_state->setError($form['default_package_type'], $this->t(
-        'The weight for a package type cannot be 0 for UPS.
-         Please select another package or change the weight for this package and
-          resave.'
-      ));
-    }
   }
 
   /**
